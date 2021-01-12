@@ -1,4 +1,4 @@
-module github.com/juju-solutions/hostpath-provisioner
+module github.com/dennismaxjung/expanded-hostpath-provisioner
 
 go 1.15
 
