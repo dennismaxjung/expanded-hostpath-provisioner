@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-IMAGE?=cdkbot/hostpath-provisioner
+IMAGE?=dennismaxjung/expanded-hostpath-provisioner
 
 TAG_GIT=$(IMAGE):$(shell git rev-parse HEAD)
 TAG_LATEST=$(IMAGE):latest
@@ -20,7 +20,7 @@ TAG_LATEST=$(IMAGE):latest
 all: hostpath-provisioner image
 
 image:
-	docker build -t $(TAG_GIT) -f Dockerfile.scratch .
+	docker build -t $(TAG_GIT) -f Dockerfile .
 	docker tag $(TAG_GIT) $(TAG_LATEST)
 
 push:
