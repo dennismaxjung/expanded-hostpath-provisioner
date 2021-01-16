@@ -21,6 +21,7 @@ import (
 	"errors"
 	"os"
 	"path"
+	"time"
 
 	"github.com/dennismaxjung/expanded-hostpath-provisioner/internal/config"
 	"sigs.k8s.io/sig-storage-lib-external-provisioner/v6/controller"
@@ -30,12 +31,16 @@ import (
 	klog "k8s.io/klog/v2"
 )
 
-type hostPathProvisioner config.Provisioner
+const (
+	resyncPeriod              = 15 * time.Second
+	exponentialBackOffOnError = false
+	failedRetryThreshold      = 5
+)
 
 // NewHostPathProvisioner creates a new hostpath provisioner
 func NewHostPathProvisioner(prov config.Provisioner) controller.Provisioner {
-	var tmp = hostPathProvisioner(prov)
-	return &tmp
+	var provisioner = hostPathProvisioner(prov)
+	return &provisioner
 }
 
 // Provision creates a storage asset and returns a PV object representing it.
@@ -56,7 +61,7 @@ func (p *hostPathProvisioner) Provision(ctx context.Context, options controller.
 		ObjectMeta: metav1.ObjectMeta{
 			Name: options.PVName,
 			Annotations: map[string]string{
-				"hostPathProvisionerIdentity": p.Name,
+				"hostPathProvisionerIdentity": nodeName,
 			},
 		},
 		Spec: v1.PersistentVolumeSpec{
@@ -83,7 +88,7 @@ func (p *hostPathProvisioner) Delete(ctx context.Context, volume *v1.PersistentV
 	if !ok {
 		return errors.New("identity annotation not found on PV")
 	}
-	if ann != p.Name {
+	if ann != nodeName {
 		return &controller.IgnoredError{Reason: "identity annotation on PV does not match ours"}
 	}
 
