@@ -1,0 +1,15 @@
+{
+    "defaultProvisioner": true,
+    "provisioners": [
+        {
+            "name": "example-provisioner",
+            "directory": "/media/test/test-storage",
+            "reclaimPolicy": "Retain"
+        },
+        {
+            "name": "example-provisioner-two",
+            "directory": "/media/test/second-storage",
+            "reclaimPolicy": ""
+        }
+    ]
+}
