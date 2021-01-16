@@ -14,72 +14,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package hostpathProvisioner
 
 import (
 	"context"
 	"errors"
-	"flag"
 	"os"
 	"path"
-	"syscall"
-	"time"
 
+	"github.com/dennismaxjung/expanded-hostpath-provisioner/internal/config"
 	"sigs.k8s.io/sig-storage-lib-external-provisioner/v6/controller"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	klog "k8s.io/klog/v2"
 )
 
-const (
-	resyncPeriod = 15 * time.Second
-	// The provisioner name "microk8s.io/hostpath" must be the one used in the storage class manifest
-	provisionerName           = "microk8s.io/hostpath"
-	exponentialBackOffOnError = false
-	failedRetryThreshold      = 5
-)
-
-type hostPathProvisioner struct {
-	// The directory to create PV-backing directories in
-	pvDir string
-
-	// Identity of this hostPathProvisioner, set to node's name. Used to identify
-	// "this" provisioner's PVs.
-	identity string
-
-	// Override the default reclaim-policy of dynamicly provisioned volumes
-	// (which is remove).
-	reclaimPolicy string
-}
+type hostPathProvisioner config.Provisioner
 
 // NewHostPathProvisioner creates a new hostpath provisioner
-func NewHostPathProvisioner() controller.Provisioner {
-	nodeName := os.Getenv("NODE_NAME")
-	if nodeName == "" {
-		klog.Fatal("env variable NODE_NAME must be set so that this provisioner can identify itself")
-	}
-
-	pvDir := os.Getenv("PV_DIR")
-	if pvDir == "" {
-		klog.Fatal("env variable PV_DIR must be set so that this provisioner knows where to place its data")
-	}
-
-	reclaimPolicy := os.Getenv("PV_RECLAIM_POLICY")
-	return &hostPathProvisioner{
-		pvDir:         pvDir,
-		identity:      nodeName,
-		reclaimPolicy: reclaimPolicy,
-	}
+func NewHostPathProvisioner(prov config.Provisioner) controller.Provisioner {
+	var tmp = hostPathProvisioner(prov)
+	return &tmp
 }
-
-var _ controller.Provisioner = &hostPathProvisioner{}
 
 // Provision creates a storage asset and returns a PV object representing it.
 func (p *hostPathProvisioner) Provision(ctx context.Context, options controller.ProvisionOptions) (*v1.PersistentVolume, controller.ProvisioningState, error) {
-	path := path.Join(p.pvDir, options.PVC.Namespace+"-"+options.PVC.Name+"-"+options.PVName)
+	path := path.Join(p.Directory, options.PVC.Namespace+"-"+options.PVC.Name+"-"+options.PVName)
 	klog.Infof("creating backing directory: %v", path)
 
 	if err := os.MkdirAll(path, 0777); err != nil {
@@ -87,15 +48,15 @@ func (p *hostPathProvisioner) Provision(ctx context.Context, options controller.
 	}
 
 	reclaimPolicy := *options.StorageClass.ReclaimPolicy
-	if p.reclaimPolicy != "" {
-		reclaimPolicy = v1.PersistentVolumeReclaimPolicy(p.reclaimPolicy)
+	if p.ReclaimPolicy != "" {
+		reclaimPolicy = v1.PersistentVolumeReclaimPolicy(p.ReclaimPolicy)
 	}
 
 	pv := &v1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: options.PVName,
 			Annotations: map[string]string{
-				"hostPathProvisionerIdentity": p.identity,
+				"hostPathProvisionerIdentity": p.Name,
 			},
 		},
 		Spec: v1.PersistentVolumeSpec{
@@ -122,7 +83,7 @@ func (p *hostPathProvisioner) Delete(ctx context.Context, volume *v1.PersistentV
 	if !ok {
 		return errors.New("identity annotation not found on PV")
 	}
-	if ann != p.identity {
+	if ann != p.Name {
 		return &controller.IgnoredError{Reason: "identity annotation on PV does not match ours"}
 	}
 
@@ -133,45 +94,4 @@ func (p *hostPathProvisioner) Delete(ctx context.Context, volume *v1.PersistentV
 	}
 
 	return nil
-}
-
-func main() {
-	syscall.Umask(0)
-
-	flag.Parse()
-	flag.Set("logtostderr", "true")
-
-	// Create an InClusterConfig and use it to create a client for the controller
-	// to use to communicate with Kubernetes
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		klog.Fatalf("Failed to create config: %v", err)
-	}
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		klog.Fatalf("Failed to create client: %v", err)
-	}
-
-	// The controller needs to know what the server version is because out-of-tree
-	// provisioners aren't officially supported until 1.5
-	serverVersion, err := clientset.Discovery().ServerVersion()
-	if err != nil {
-		klog.Fatalf("Error getting server version: %v", err)
-	}
-
-	// Create the provisioner: it implements the Provisioner interface expected by
-	// the controller
-	hostPathProvisioner := NewHostPathProvisioner()
-
-	// Start the provision controller which will dynamically provision hostPath
-	// PVs
-	pc := controller.NewProvisionController(clientset, provisionerName, hostPathProvisioner, serverVersion.GitVersion,
-		controller.ExponentialBackOffOnError(exponentialBackOffOnError),
-		controller.ResyncPeriod(resyncPeriod),
-		controller.FailedProvisionThreshold(failedRetryThreshold),
-		controller.FailedDeleteThreshold(failedRetryThreshold),
-	)
-
-	// Never stops.
-	pc.Run(context.Background())
 }
