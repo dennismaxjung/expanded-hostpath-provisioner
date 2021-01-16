@@ -42,8 +42,8 @@ func getDefaultProvisioner() conf.Provisioner {
 		klog.Fatal("The env variable PV_DIR has to be set.")
 	}
 	pvreclaim := os.Getenv("PV_RECLAIM_POLICY")
-	if pvreclaim == "The env variable PV_RECLAIM_POLICY has to be set." {
-		klog.Fatal()
+	if pvreclaim == "" {
+		klog.Info("The env variable PV_RECLAIM_POLICY is not set. The ReclaimPolicy of the StorageClass will be used")
 	}
 
 	return conf.Provisioner{Name: provisionerName, Directory: pvdir, ReclaimPolicy: pvreclaim}
