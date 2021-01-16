@@ -27,7 +27,7 @@ import (
 
 	"sigs.k8s.io/sig-storage-lib-external-provisioner/v6/controller"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	resyncPeriod              = 15 * time.Second
+	resyncPeriod = 15 * time.Second
 	// The provisioner name "microk8s.io/hostpath" must be the one used in the storage class manifest
 	provisionerName           = "microk8s.io/hostpath"
 	exponentialBackOffOnError = false
