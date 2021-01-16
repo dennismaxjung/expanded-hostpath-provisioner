@@ -40,7 +40,7 @@ func LoadConfiguration(file string) (Config, error) {
 	configFile, err := os.Open(file)
 	defer configFile.Close()
 	if err != nil {
-		return config, err
+		return Config{Provisioners: []Provisioner{}, DefaultProvisioner: true}, err
 	}
 	jsonParser := json.NewDecoder(configFile)
 	err = jsonParser.Decode(&config)
