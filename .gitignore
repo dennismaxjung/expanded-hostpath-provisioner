@@ -1,5 +1,5 @@
 vendor/*
-hostpath-provisioner
+expanded-hostpath-provisioner
 /.idea
 /*.iml
 
