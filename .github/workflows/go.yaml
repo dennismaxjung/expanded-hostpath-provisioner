@@ -22,10 +22,62 @@ jobs:
           go-version: 1.15
 
       - name: Build
-        run: CGO_ENABLED=0 go build -a -v -ldflags '-extldflags "-static"' -o expanded-hostpath-provisioner .
+        run: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -a -v -ldflags '-extldflags "-static"' -o expanded-hostpath-provisioner .
 
       - if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop'
         uses: actions/upload-artifact@v2
         with:
           name: build
           path: expanded-hostpath-provisioner
+
+  publish-develop:
+    runs-on: ubuntu-latest
+    needs: build
+    name: Deploy Docker Image - DEV
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push' && github.repository == 'dennismaxjung/expanded-hostpath-provisioner'
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: build
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      ###############################
+      # Login to DockerHub registry #
+      ###############################
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      ######################################
+      # Login to GitHub Container registry #
+      ######################################
+      #- name: Login to GitHub Container Registry
+      #  uses: docker/login-action@v1
+      #  with:
+      #    username: ${{ secrets.GCR_USERNAME }}
+      #    password: ${{ secrets.GCR_TOKEN }}
+      #    registry: ghcr.io
+
+      ###########################################
+      # Build and Push containers to registries #
+      ###########################################
+      - name: Build and push
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ghcr.io/dennismaxjung/expanded-hostpath-provisioner:develop
+            dennismaxjung/expanded-hostpath-provisioner:develop
