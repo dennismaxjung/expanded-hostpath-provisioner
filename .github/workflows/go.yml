@@ -20,7 +20,7 @@ jobs:
 
     - name: Download dependencies
      # run: go get ./...
-      run: go mod download
+      run: go mod download all
       
     - name: Build
       run: go build -v ./...
