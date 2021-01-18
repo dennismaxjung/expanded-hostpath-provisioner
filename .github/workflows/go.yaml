@@ -44,6 +44,9 @@ jobs:
         with:
           name: build
 
+      - name: Make file executable
+        run: chmod +x ./expanded-hostpath-provisioner
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 
